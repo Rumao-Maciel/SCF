@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>SCF FRONT-TECH | PRO</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #eef2f7; padding: 20px; }
+        .container { max-width: 600px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        
+        /* Logo no Header e Recibo */
+        .logo-display { text-align: center; margin-bottom: 20px; }
+        .logo-display img { max-width: 150px; height: auto; border-radius: 50%; }
+        
+        h3 { color: #002D62; margin-top: 0; }
+        input, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ced4da; border-radius: 6px; box-sizing: border-box; }
+        .btn { padding: 12px 20px; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; transition: 0.3s; width: 100%; margin-top: 10px; }
+        .btn-abrir { background: #002D62; }
+        .btn-finalizar { background: #27ae60; }
+        .btn-excluir { background: #e74c3c; }
+        .item-row { display: grid; grid-template-columns: 1fr 100px; gap: 10px; margin-bottom: 10px; }
+        
+        #doc-print { display: none; padding: 40px; }
+        @media print { body * { visibility: hidden; } #doc-print, #doc-print * { visibility: visible; } #doc-print { position: absolute; left: 0; top: 0; width: 100%; display: block !important; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="logo-display">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==" alt="Logo SCF" id="logo-fixa">
+    </div>
+
+    <div class="card">
+        <h3>Nova Ordem de Serviço</h3>
+        <input type="text" id="nome" placeholder="Nome do Cliente">
+        <input type="text" id="end" placeholder="Endereço">
+        <input type="text" id="tel" placeholder="Telefone">
+        <input type="text" id="equip" placeholder="Equipamento (HP ENVY 360)">
+        <input type="text" id="acess" placeholder="Acessórios (Fonte, Cabos)">
+        <textarea id="prob" placeholder="Problema Relatado"></textarea>
+        <button class="btn btn-abrir" onclick="salvarOS()">CRIAR O.S.</button>
+    </div>
+
+    <input type="text" id="busca" placeholder="🔍 Buscar cliente..." onkeyup="renderizar()">
+    <div id="lista"></div>
+</div>
+
+<div id="modal-final" class="card" style="display:none; position:fixed; top:5%; width:90%; max-width:500px; left:5%; z-index:1000;">
+    <h3>Finalizar O.S. #<span id="f-id"></span></h3>
+    <div id="lista-servicos">
+        <div class="item-row">
+            <input type="text" class="serv" placeholder="Serviço realizado">
+            <input type="number" class="valor" placeholder="R$">
+        </div>
+    </div>
+    <button class="btn" style="background:#555" onclick="addCampo()">+ Adicionar outro serviço</button>
+    <button class="btn btn-finalizar" onclick="finalizarPDF()">GERAR RECIBO (PDF)</button>
+    <button class="btn" style="background:#888" onclick="document.getElementById('modal-final').style.display='none'">Cancelar</button>
+</div>
+
+<div id="doc-print">
+    <div class="logo-display">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==" alt="Logo">
+    </div>
+    <h2 style="text-align:center">RECIBO SCF PRINT INFORMÁTICA</h2>
+    <p style="text-align:center">Av. Eng. Armando de Arruda Pereira, 3420 Loja 3<br>Fone: 3535-1609</p>
+    <p>Cliente: <span id="p-nome"></span></p>
+    <div id="p-tabela"></div>
+    <hr>
+    <h3>TOTAL: R$ <span id="p-total"></span></h3>
+</div>
+
+<script>
+    // Inserindo a imagem real (substituindo o exemplo anterior)
+    const logoBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="; // Substitua esta string pela string real do seu arquivo após conversão
+    document.querySelectorAll('#logo-fixa, #doc-print img').forEach(img => img.src = logoBase64);
+
+    let db = JSON.parse(localStorage.getItem('scf_db')) || { id: 5106, registros: [] };
+
+    function salvarOS() {
+        db.registros.push({
+            id: db.id++,
+            nome: document.getElementById('nome').value,
+            end: document.getElementById('end').value,
+            tel: document.getElementById('tel').value,
+            equip: document.getElementById('equip').value,
+            acess: document.getElementById('acess').value,
+            prob: document.getElementById('prob').value
+        });
+        localStorage.setItem('scf_db', JSON.stringify(db));
+        location.reload();
+    }
+
+    function addCampo() {
+        const div = document.getElementById('lista-servicos');
+        const novoItem = document.createElement('div');
+        novoItem.className = 'item-row';
+        novoItem.innerHTML = `<input type="text" class="serv" placeholder="Serviço"><input type="number" class="valor" placeholder="R$">`;
+        div.appendChild(novoItem);
+    }
+
+    function abrirModal(id) {
+        document.getElementById('f-id').innerText = id;
+        document.getElementById('modal-final').style.display = 'block';
+    }
+
+    function finalizarPDF() {
+        const id = document.getElementById('f-id').innerText;
+        const r = db.registros.find(x => x.id == id);
+        const servs = document.querySelectorAll('.serv');
+        const vals = document.querySelectorAll('.valor');
+        
+        let total = 0;
+        let htmlList = "<table width='100%' border='1' style='border-collapse:collapse; text-align:left;'><tr><th style='padding:5px'>Serviço</th><th style='padding:5px'>Valor</th></tr>";
+        for(let i=0; i<servs.length; i++) {
+            if(servs[i].value) {
+                let v = parseFloat(vals[i].value || 0);
+                total += v;
+                htmlList += `<tr><td style='padding:5px'>${servs[i].value}</td><td style='padding:5px'>R$ ${v.toFixed(2)}</td></tr>`;
+            }
+        }
+        htmlList += "</table>";
+        
+        document.getElementById('p-nome').innerText = r.nome;
+        document.getElementById('p-tabela').innerHTML = htmlList;
+        document.getElementById('p-total').innerText = total.toFixed(2);
+        window.print();
+        document.getElementById('modal-final').style.display = 'none';
+    }
+
+    function excluir(id) {
+        if(confirm("Excluir esta O.S.?")) {
+            db.registros = db.registros.filter(x => x.id != id);
+            localStorage.setItem('scf_db', JSON.stringify(db));
+            renderizar();
+        }
+    }
+
+    function renderizar() {
+        const termo = document.getElementById('busca').value.toLowerCase();
+        const div = document.getElementById('lista');
+        div.innerHTML = '';
+        db.registros.filter(r => r.nome.toLowerCase().includes(termo)).forEach(r => {
+            div.innerHTML += `<div class="card">
+                <b>O.S. #${r.id} - ${r.nome}</b><br>
+                <button class="btn btn-finalizar" onclick="abrirModal(${r.id})">Finalizar e Gerar Recibo</button>
+                <button class="btn btn-excluir" onclick="excluir(${r.id})">Excluir</button>
+            </div>`;
+        });
+    }
+    renderizar();
+</script>
+</body>
+</html>
